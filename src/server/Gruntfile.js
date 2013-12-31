@@ -31,10 +31,18 @@ module.exports = function(grunt) {
           script: './app.js',
         }
       }
+    },
+    nodeunit: {
+      all: [ "tests/*.js" ],
+      options: {
+        reporter: "default",
+        reporterOutput: true
+      }
     }
   } );
 
   grunt.loadNpmTasks( "grunt-express-server" );
   grunt.loadNpmTasks( "grunt-contrib-watch" );
+  grunt.loadNpmTasks( "grunt-contrib-nodeunit" );
   grunt.registerTask( "server", [ "express:dev", "watch" ] );
 };
