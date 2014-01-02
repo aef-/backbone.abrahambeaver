@@ -124,7 +124,7 @@ var User.Views.Login =
         this.reset( );
     }
   };
-  
+
   var Variant = Backbone.AB.Variant = function( ) {
   };
 

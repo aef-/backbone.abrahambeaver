@@ -5,14 +5,12 @@ var _ = require( "lodash" ),
 module.exports = {
   setUp: function( done ) {
     this.experiment = new Experiment( );
-    this.variant = new Variant( );
+    this.variant = new Variant( this.experiment );
     _.bindAll( this.experiment );
     done( );
   },
   tearDown: function( done ) {
     this.experiment.destroy( )
-      .then( function( ) {
-      } )
       .fail( function( e ) {
         console.trace( ); 
         console.info( e );
@@ -20,11 +18,11 @@ module.exports = {
   },
   "should save": function( test ) {
     var self = this;
-    self.variant.setName( "Test Variant: Save" );
-    self.variant.save( )
-      .then( self.variant.exists )
+    self.experiment.setName( "Test Variant: Save" );
+    self.experiment.save( )
+      .then( self.experiment.exists )
       .then( function( exists ) {
-        test.ok( exists, "Variant does not exist -- was not saved" );
+        test.ok( exists, "Experiment does not exist -- was not saved" );
       } )
       .fail( function( e ) {
         console.info( e );
@@ -48,7 +46,7 @@ module.exports = {
     var exp2;
     var self = this,
         goals = [ "goal1", "goal2", "goal3", "goal4" ],
-        variants = [ ];
+        variants = [ new Variant( self.experiment, { name: "LoadVar1" } ), new Variant( self.experiment, { name: "LoadVar2" } ) ];
     self.experiment.setName( "Test Experiment: Load" );
     self.experiment.setResettable( true );
     self.experiment.addGoals( goals );
@@ -61,8 +59,16 @@ module.exports = {
       .then( function( ) {
         test.ok( !_.difference( goals, exp2.getGoals( ) ).length, 
           "Expected goals: " + goals.join( ", " ) + " do not match received goals: " + exp2.getGoals( ).join( ", " ) );
-        test.ok( exp2.isResettable( ), "Test should be resettable" );
+        test.ok( exp2.getVariants( ).length === variants.length, 
+          "Expected variants: " + variants.join( ", " ) + " do not match received variants: " + exp2.getVariants( ).join( ", " ) );
+        test.ok( exp2.isResettable( ), "Experiment should be resettable" );
       } )
       .done( test.done );
+  }/*
+  "should reset": function( test ) {
+    var self = this;
+    self.experiment.setName( "Test Experiment: Reset" );
+    self.experiment.save( )
   }
+  */
 };

@@ -6,7 +6,6 @@ var db = require( "../../lib/db" ),
     check = require('validator').check;
 
 function Experiment( attr ) {
-  this._uid = null;
   this._attributes = _.defaults( attr || { }, { 
     name: '',  //required
     startedat: null,
@@ -18,27 +17,46 @@ function Experiment( attr ) {
     version: 0
   } );
 
-  this.getKey = function( ) { return "experiments:" + this._uid };
-  this.getUidKey = function( ) { return "experiments:" + this.getName( ) };
+  this.getKey = function( ) { 
+    if( parseInt( this.getVersion( ), 10 ) > 0 )
+      return "exp:" + this.getName( ) + ":" + this.getVersion( );
+    return "exp:" + this.getName( );
+  };
   this.getVariantsKey = function( ) { return this.getKey( ) + ":variants" };
   this.getGoalsKey = function( ) { return this.getKey( ) + ":goals" };
   this.getExperimentsKey = function( ) { return "experiments" };
-  this.getRunningKey = function( ) { return "experiments:running" };
-  this.getFinishedKey = function( ) { return "experiments:finished" };
+  this.getRunningKey = function( ) { return "exps:running" };
+  this.getFinishedKey = function( ) { return "exps:finished" };
+};
+
+Experiment.running = function( ) {
+  var experiments = [ ];
+  return Q.ninvoke( client, "smembers", this.getRunningKey( ) )
+          .then( function( expNames ) {
+            _.each( expNames, function( name ) { 
+              experiments.push( new Experiment( { name:e } ) );
+            } );
+            experiments.sortBy( experiments, function( e ) {
+              return -e.getCreatedAt( );
+            } );
+            return experiments;
+          } );
 };
 
 /*
-Experiment.all = function( ) {
-  return _.map( client.smembers( "experiments" ) );
+Experiment.findInactive = function( ) {
+  return Q.ninvoke( client, "sinter", 
 };
 */
 
 Experiment.prototype = {
+  toString: function( ) {
+    return "Experiment: " + this.getName( );
+  }, 
   load: function( ) {
     check( this.getName( ) ).notEmpty( );
 
-    return Q.ninvoke( client, "hget", this.getUidKey( ), "uid" )
-      .then( _.bind( this._loadAttributes, this ) )
+    return this.loadAttributes( )
       .then( _.bind( this.loadVariants, this ) )
       .then( _.bind( this.loadGoals, this ) );
   },
@@ -47,19 +65,13 @@ Experiment.prototype = {
     return this._attributes.name;
   },
 
-  getKey: function( ) {
-    if( parseInt( this._attributes.version, 10 ) > 0 )
-      return "experiments:" + this._uid + ":" + this._attributes.version;
-    return "experiments:" + this._uid;
-  },
-
   start: function( ) {
     this._attributes.startedAt = new Date( ).getTime( );
     var d = Q.defer( );
 
     client.multi( )
       .hset( this.getKey( ), "startedAt", this.getStartedAt( ) )
-      .sadd( this.getRunningKey( ), this._uid )
+      .sadd( this.getRunningKey( ), this.getName( ) )
       .exec( function( err, results ) {
         if( typeof err === "array" && err.length )
           d.reject( new Error( err.join( ", " ) ) );
@@ -76,8 +88,8 @@ Experiment.prototype = {
 
     client.multi( )
       .hset( this.getKey( ), "finishedAt", this.getFinishedAt( ) )
-      .srem( this.getRunningKey( ), this._uid )
-      .sadd( this.getFinishKey( ), this._uid )
+      .srem( this.getRunningKey( ), this.getName( ) )
+      .sadd( this.getFinishKey( ), this.getName( ) )
       .exec( function( err, results ) {
         if( typeof err === "array" && err.length )
           d.reject( new Error( err.join( ", " ) ) );
@@ -89,13 +101,13 @@ Experiment.prototype = {
   },
  
   save: function( ) {
-    check( this.getName( ) ).notEmpty( );
+    check( this.getName( ), "Experiment name is required in order to save" ).notEmpty( );
     return this.exists( ).then( _.bind( this._createOrUpdate, this ) );
   },
 
   incrementVersion: function( ) {
-    var p = Q.ninvoke( client, "incr", this.getVersionKey( ) );
-    return p.then( _.bind( this._setAttribute, this, "version" ) );
+    return Q.ninvoke( client, "incr", this.getVersionKey( ) )
+            .then( _.bind( this._setAttribute, this, "version" ) );
   },
 
   getVersion: function( ) {
@@ -103,13 +115,11 @@ Experiment.prototype = {
   },
 
   saveVariant: function( variant ) {
-    var p = Q.invoke( client, "sadd", this.getVariantsKey( ), variant );
-    return p.then( _.bind( this._addVariant, this, variant ) );
+    return Q.invoke( client, "sadd", this.getVariantsKey( ), variant.getName( ) );
   },
 
   saveGoal: function( goal ) {
-    var p = Q.invoke( client, "sadd", this.getGoalsKey( ), goal );
-    return p.then( _.bind( this._addGoal, this, goal ) );
+    return Q.invoke( client, "sadd", this.getGoalsKey( ), goal );
   },
 
   addVariants: function( variants ) {
@@ -155,8 +165,9 @@ Experiment.prototype = {
     return this._attributes.winner;
   },
 
-  saveWinner: function( variantName ) {
-    return Q.ninvoke( client, "hget", this.getKey( ), "winner", variantName );
+  setWinner: function( variantName ) {
+    return Q.ninvoke( client, "hget", this.getKey( ), "winner", variantName )
+            .then( _.bind( this._setAttribute, this, "winner", variantName ) );
   },
 
   setName: function( name ) {
@@ -167,12 +178,15 @@ Experiment.prototype = {
     return this._attributes.variants;
   },
 
+  loadAttributes: function( ) {
+    return Q.ninvoke( client, "hgetall", this.getKey( ) )
+            .then( _.bind( this._setAttributes, this ) );
+  }, 
   loadVariants: function( ) {
-    var p = Q.ninvoke( client, "lrange", this.getVariantsKey( ), 0, -1 );
-    p.then( _.bind( function( variants ) {
-      this._attributes.variants = variants || [ ];
-    }, this ) );
-    return p;
+    return Q.ninvoke( client, "smembers", this.getVariantsKey( ) )
+            .then( _.bind( function( variants ) {
+              this._attributes.variants = variants || [ ];
+            }, this ) );
   },
 
   getGoals: function( ) {
@@ -180,19 +194,18 @@ Experiment.prototype = {
   },
 
   loadGoals: function( ) {
-    var p = Q.ninvoke( client, "smembers", this.getGoalsKey( ) );
-    p.then( _.bind( function( goals ) {
-      this._attributes.goals = goals || [ ];
-    }, this ) );
-    return p;
+    return Q.ninvoke( client, "smembers", this.getGoalsKey( ) )
+            .then( _.bind( function( goals ) {
+              this._attributes.goals = goals || [ ];
+            }, this ) );
   },
 
   reset: function( ) {
-    this._attributes.variants.each( function( v ) {
+    return Q.all( this.getVariants( ).each( function( v ) {
       v.reset( );
-    } );
-    this.resetWinner( );
-    this.incrementVersion( );
+    } ) )
+    .then( this.resetWinner )
+    .then( this.incrementVersion );
   },
 
   resetWinner: function( ) {
@@ -200,7 +213,7 @@ Experiment.prototype = {
   },
 
   removeVariants: function( ) {
-    _.each( this.getVariants( ), function( v ) {
+    return _.each( this.getVariants( ), function( v ) {
       v.remove( );
     } ); 
   },
@@ -219,39 +232,39 @@ Experiment.prototype = {
 
   //private, don't be a hero
   _destroy: function( exists ) {
+    var d = Q.defer( );
     if( exists ) {
-      var d = Q.defer( );
       client.multi( )
         .del( this.getKey( ) )
-        .del( this.getUidKey( ) )
         .del( this.getVariantsKey( ) )
         .del( this.getGoalsKey( ) )
-        .srem( this.getRunningKey( ), this._uid )
-        .srem( this.getFinishedKey( ), this._uid )
-        .srem( this.getExperimentsKey( ), this._uid )
+        .srem( this.getRunningKey( ), this.getName( ) )
+        .srem( this.getFinishedKey( ), this.getName( ) )
+        .srem( this.getExperimentsKey( ), this.getName( ) )
         .exec( function( err, results ) {
           if( typeof err === "array" && err.length )
             d.reject( new Error( err.join( ", " ) ) );
           else
-            d.resolve( results );
+            d.resolve( );
         } );
     }
-    return d;
+    else
+      d.reject( new Error( "Cannot destroy experiment which does not exist" ) );
+
+    return d.promise;
   },
   _create: function( ) {
-    return Q.ninvoke( client, "incr", "global:nextExperimentUid" )
-      .then( _.bind( this._saveAttributes, this ) )
-      .then( _.bind( function( ) {  
+    return Q.fcall( _.bind( this._saveAttributes, this ) )
+      .then( _.bind( function( ) {
+        return Q.all( _.each( this._attributes.variants, this.saveVariant, this ) );
       }, this ) )
       .then( _.bind( function( ) {
         return Q.all( _.each( this._attributes.goals, this.saveGoal, this ) )
       }, this ) );
   },
-  _saveAttributes: function( uid ) {
+  _saveAttributes: function( ) {
     var d = Q.defer( );
-    this._uid = uid;
     client.multi( )
-      .hset( this.getUidKey( ), "uid", this._uid )
       .hset( this.getKey( ), "name", this.getName( ) )
       .hset( this.getKey( ), "createdAt", this.getCreatedAt( ) )
       .hset( this.getKey( ), "resettable", this.isResettable( ) )
@@ -262,10 +275,11 @@ Experiment.prototype = {
         else
           d.resolve( results );
       } );
-    return d;
+    return d.promise;
   },
 
   _update: function( ) {
+    this._create( );
              /*
     var goals, alternatives;
     goals = this.loadGoals( );
@@ -282,11 +296,12 @@ Experiment.prototype = {
       if( !this._attributes.goals.length )
         _.each( this._attributes.goals, this.addGoal );
     } 
-    Q.ninvoke( client "hset", this.configKey( ), "resettable", this.resettable )
+    Q.ninvoke( client, "hset", this.configKey( ), "resettable", this.resettable )
     */
   },
+
   _createOrUpdate: function( exists ) {
-    return exists ? this._create( ) : this._create( );
+    return exists ? this._update( ) : this._create( );
   },
   _setAttributes: function( attr ) {
     this._setAttribute( "startedAt", attr.startedAt );
@@ -314,14 +329,6 @@ Experiment.prototype = {
       console.trace( );
       throw new Error( "There was a problem adding goal: ", goal );
     }
-  },
-  _loadAttributes: function( uid ) {
-    this._uid = uid;
-    if( ~uid )
-      return Q.ninvoke( client, "hgetall", this.getKey( ) )
-        .then( _.bind( this._setAttributes, this ) );
-      else
-        throw new Error( "Cannot load ", this.getName( ) , "does not exist" );
   }
 };
 

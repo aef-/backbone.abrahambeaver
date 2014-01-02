@@ -28,7 +28,7 @@ if ( "development" == app.get( "env" ) ) {
 //app.post( "/complete/:name" );
 
 //Routes
-app.get( "/", controllers.test.list );
+app.get( "/", controllers.experiments.list );
 //app.get( "/", testController.list  );
 
 http.createServer( app ).listen( app.get( "port" ), function(  ){
