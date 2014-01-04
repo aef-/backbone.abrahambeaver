@@ -1,0 +1,65 @@
+<html>
+  <head>
+    <script type="text/javascript" src="./libs/jquery.js"></script>
+    <script type="text/javascript" src="./libs/lodash.js"></script>
+    <script type="text/javascript" src="./libs/backbone.js"></script>
+    <script type="text/javascript" src="./libs/jquery.cookie.js"></script>
+    <script type="text/javascript" src="./src/backbone.abrahambeaver.js"></script>
+    <style>
+      .blue a, .blue a:visited {
+        color: blue;
+      }
+      .red a, .red a:visited {
+        color: red;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="links"></div>
+    <script type="text/javascript">
+
+      var NavBlue = Backbone.View.extend( {
+        className: "blue",
+        el: ".links",
+        template: '<a href="#">Enter</a> | <a href="#">Leave</a>',
+        events: {
+          "click a": "onClick"
+        },
+        render: function( ) {
+          this.$el.html( this.template );
+          this.$el.addClass( this.className );
+          return this;
+        },
+        onClick: function( e ) {
+          var goal = $( e.target ).text( );
+          Backbone.AB.complete( "Are red links better for user engagement?", goal );
+        }
+      } );
+ 
+      var NavRed = NavBlue.extend( {
+        className: "red"
+      } );
+
+      NavView =
+        Backbone.AB.View.extend( {
+          name: "Are red links better for user engagement?",
+          variants: [
+            new Backbone.AB.Variant( {
+              name: "Blue Link",
+              weight: 1,
+              type: "control",
+              view: NavBlue
+            } ),
+            new Backbone.AB.Variant( {
+              name: "Red Link",
+              weight: 1,
+              view: NavRed
+            } )
+          ]
+        } );
+
+      var Nav = new NavView( );
+      Nav.render( );
+    </script> 
+  </body>
+</html>

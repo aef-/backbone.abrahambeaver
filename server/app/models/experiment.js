@@ -24,25 +24,40 @@ function Experiment( attr ) {
   };
   this.getVariantsKey = function( ) { return this.getKey( ) + ":variants" };
   this.getGoalsKey = function( ) { return this.getKey( ) + ":goals" };
-  this.getExperimentsKey = function( ) { return "experiments" };
-  this.getRunningKey = function( ) { return "exps:running" };
-  this.getFinishedKey = function( ) { return "exps:finished" };
 };
+
+Experiment.getExperimentsKey = function( ) { return "experiments" };
+Experiment.getRunningKey = function( ) { return "exps:running" };
+Experiment.getFinishedKey = function( ) { return "exps:finished" };
+Experiment.getFinishedKey = function( ) { return "exps:finished" };
 
 Experiment.running = function( ) {
   var experiments = [ ];
-  return Q.ninvoke( client, "smembers", this.getRunningKey( ) )
+  return Q.ninvoke( client, "smembers", Experiment.getRunningKey( ) )
           .then( function( expNames ) {
             _.each( expNames, function( name ) { 
               experiments.push( new Experiment( { name:e } ) );
             } );
-            experiments.sortBy( experiments, function( e ) {
+            _.sortBy( experiments, function( e ) {
               return -e.getCreatedAt( );
             } );
             return experiments;
           } );
 };
 
+Experiment.all = function( ) {
+  var experiments = [ ];
+  return Q.ninvoke( client, "smembers", Experiment.getExperimentsKey( ) )
+          .then( function( expNames ) {
+            _.each( expNames, function( name ) { 
+              experiments.push( new Experiment( { name:e } ) );
+            } );
+            _.sortBy( experiments, function( e ) {
+              return -e.getCreatedAt( );
+            } );
+            return experiments;
+          } ); 
+};
 /*
 Experiment.findInactive = function( ) {
   return Q.ninvoke( client, "sinter", 
@@ -71,7 +86,7 @@ Experiment.prototype = {
 
     client.multi( )
       .hset( this.getKey( ), "startedAt", this.getStartedAt( ) )
-      .sadd( this.getRunningKey( ), this.getName( ) )
+      .sadd( Experiment.getRunningKey( ), this.getName( ) )
       .exec( function( err, results ) {
         if( typeof err === "array" && err.length )
           d.reject( new Error( err.join( ", " ) ) );
@@ -88,7 +103,7 @@ Experiment.prototype = {
 
     client.multi( )
       .hset( this.getKey( ), "finishedAt", this.getFinishedAt( ) )
-      .srem( this.getRunningKey( ), this.getName( ) )
+      .srem( Experiment.getRunningKey( ), this.getName( ) )
       .sadd( this.getFinishKey( ), this.getName( ) )
       .exec( function( err, results ) {
         if( typeof err === "array" && err.length )
@@ -174,6 +189,10 @@ Experiment.prototype = {
     this._attributes.name = name;
   },
 
+  hasVariant: function( variantName ) {
+    return ~this._attributes.variants.indexOf( variantName );
+  },
+
   getVariants: function( ) {
     return this._attributes.variants;
   },
@@ -238,9 +257,9 @@ Experiment.prototype = {
         .del( this.getKey( ) )
         .del( this.getVariantsKey( ) )
         .del( this.getGoalsKey( ) )
-        .srem( this.getRunningKey( ), this.getName( ) )
-        .srem( this.getFinishedKey( ), this.getName( ) )
-        .srem( this.getExperimentsKey( ), this.getName( ) )
+        .srem( Experiment.getRunningKey( ), this.getName( ) )
+        .srem( Experiment.getFinishedKey( ), this.getName( ) )
+        .srem( Experiment.getExperimentsKey( ), this.getName( ) )
         .exec( function( err, results ) {
           if( typeof err === "array" && err.length )
             d.reject( new Error( err.join( ", " ) ) );
