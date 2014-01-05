@@ -1,0 +1,22 @@
+extends ../layouts/admin
+
+block content
+  .row
+    .col-lg-12
+      h1="Experiments"
+      ol.breadcrumb
+        li.active
+          i.fa.fa-table=" Experiments"
+
+      table.ab-experiments.datatable.table.table-striped.table-bordered
+        thead
+          tr
+            th="Name"
+            th="Created On"
+            th="Started On"
+            th="Finished On"
+
+        tbody
+          for experiment in experiments
+            tr.ab-experiment
+              include _item

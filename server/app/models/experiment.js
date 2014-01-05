@@ -11,7 +11,6 @@ function Experiment( attr ) {
     startedat: null,
     finishedAt: null,
     createdAt: new Date( ).getTime( ),
-    resettable: false,
     variants: [ ],
     goals: [ ],
     version: 0
@@ -28,7 +27,6 @@ function Experiment( attr ) {
 
 Experiment.getExperimentsKey = function( ) { return "experiments" };
 Experiment.getRunningKey = function( ) { return "exps:running" };
-Experiment.getFinishedKey = function( ) { return "exps:finished" };
 Experiment.getFinishedKey = function( ) { return "exps:finished" };
 
 Experiment.running = function( ) {
@@ -50,12 +48,15 @@ Experiment.all = function( ) {
   return Q.ninvoke( client, "smembers", Experiment.getExperimentsKey( ) )
           .then( function( expNames ) {
             _.each( expNames, function( name ) { 
-              experiments.push( new Experiment( { name:e } ) );
+              experiments.push( new Experiment( { name: name } ) );
             } );
-            _.sortBy( experiments, function( e ) {
-              return -e.getCreatedAt( );
+            return Q.all( _.invoke( experiments, "load" ) )
+            .then( function( ) {
+              return _.sortBy( experiments, function( e ) {
+                return -e.getCreatedAt( );
+              } );
+              return experiments;
             } );
-            return experiments;
           } ); 
 };
 /*
@@ -65,6 +66,15 @@ Experiment.findInactive = function( ) {
 */
 
 Experiment.prototype = {
+  toJson: function( ) {
+    return {
+      name: this.getName( ),
+      startedAt: parseInt( this.getStartedAt( ), 10 ),
+      finishedAt: parseInt( this.getFinishedAt( ), 10 ),
+      createdAt: parseInt( this.getCreatedAt( ), 10 ),
+      version: this.getVersion( )
+    };
+  },
   toString: function( ) {
     return "Experiment: " + this.getName( );
   }, 
@@ -88,6 +98,7 @@ Experiment.prototype = {
       .hset( this.getKey( ), "startedAt", this.getStartedAt( ) )
       .sadd( Experiment.getRunningKey( ), this.getName( ) )
       .exec( function( err, results ) {
+        console.info( "In Start", err, results );
         if( typeof err === "array" && err.length )
           d.reject( new Error( err.join( ", " ) ) );
         else
@@ -129,8 +140,9 @@ Experiment.prototype = {
     return this._attributes.version;
   },
 
-  saveVariant: function( variant ) {
-    return Q.invoke( client, "sadd", this.getVariantsKey( ), variant.getName( ) );
+  saveVariant: function( variantName ) {
+                 console.info( "Save variant", variantName );
+    return Q.invoke( client, "sadd", this.getVariantsKey( ), variantName );
   },
 
   saveGoal: function( goal ) {
@@ -159,14 +171,6 @@ Experiment.prototype = {
 
   getCreatedAt: function( ) {
     return this._attributes.createdAt;
-  },
-
-  setResettable: function( bool ) {
-    this._attributes.resettable = bool;
-  },
-
-  isResettable: function( ) {
-    return this._attributes.resettable;
   },
 
   getFinishedAt: function( ) {
@@ -273,22 +277,29 @@ Experiment.prototype = {
     return d.promise;
   },
   _create: function( ) {
-    return Q.fcall( _.bind( this._saveAttributes, this ) )
+            console.info( "_Create" );
+    return this._saveAttributes( )
+      .then( _.bind( function( ) {
+        console.info( "Adding" );
+        return Q.ninvoke( client, "sadd", Experiment.getExperimentsKey( ), this.getName( ) );
+      }, this ) )
+      .then( _.bind( this.start, this ) )
       .then( _.bind( function( ) {
         return Q.all( _.each( this._attributes.variants, this.saveVariant, this ) );
       }, this ) )
       .then( _.bind( function( ) {
-        return Q.all( _.each( this._attributes.goals, this.saveGoal, this ) )
+        return Q.all( _.each( this._attributes.goals, this.saveGoal, this ) );
       }, this ) );
   },
   _saveAttributes: function( ) {
     var d = Q.defer( );
+    console.info( "Save Attributes" );
     client.multi( )
       .hset( this.getKey( ), "name", this.getName( ) )
       .hset( this.getKey( ), "createdAt", this.getCreatedAt( ) )
-      .hset( this.getKey( ), "resettable", this.isResettable( ) )
       .hset( this.getKey( ), "version", this.getVersion( ) )
       .exec( function( err, results ) {
+        console.info( "Save Attributes", err, results );
         if( err )
           d.reject( new Error( err ) );
         else
@@ -298,25 +309,20 @@ Experiment.prototype = {
   },
 
   _update: function( ) {
-    this._create( );
-             /*
-    var goals, alternatives;
-    goals = this.loadGoals( );
-    variants = this.loadVariants( );
-    client.hset( this.getKey( ), "updatedAt", new Date( ).getTime( ), redis.print );
-    if( this._attributes.variants.diff( variants ).length > 0 &&
-        this._attributes.goals.diff( goals ).length > 0 ) {
-      this.reset( );
-      this.removeVariants( );
-      this.removeGoals( );
-      client.del( this.variantsKey( ) );
+    var currentGoals = _.clone( this.getGoals( ) ),
+        currentVariants = _.clone( this.getVariants( ) ),
+        variantsDiff, goalsDiff;
 
-      _.each( this._attributes.variants, this.addVariant );
-      if( !this._attributes.goals.length )
-        _.each( this._attributes.goals, this.addGoal );
-    } 
-    Q.ninvoke( client, "hset", this.configKey( ), "resettable", this.resettable )
-    */
+    Q.all( [
+      this.loadGoals( ),
+      this.loadVariants( )
+    ] )
+    .then( _.bind( function( ) {
+      variantsDiff = _.difference( currentVariants, this.getVariants( ) );
+      goalsDiff = _.difference( currentGoals, this.getGoals( ) );
+      _.each( variantsDiff, this.saveVariant, this );
+      _.each( goalsDiff, this.saveGoal, this );
+    }, this ) );
   },
 
   _createOrUpdate: function( exists ) {
@@ -324,9 +330,8 @@ Experiment.prototype = {
   },
   _setAttributes: function( attr ) {
     this._setAttribute( "startedAt", attr.startedAt );
-    this._setAttribute( "finishedat", attr.finishedAt );
+    this._setAttribute( "finishedAt", attr.finishedAt );
     this._setAttribute( "createdAt", attr.createdAt );
-    this._setAttribute( "resettable", attr.resettable );
     this._setAttribute( "winner", attr.winner );
     this._setAttribute( "version", attr.version );
   },

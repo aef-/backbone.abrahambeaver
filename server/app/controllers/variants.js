@@ -8,26 +8,25 @@ var actions = {
         variantName = req.query.variantName,
         experimentName = req.query.experimentName,
         variantType = req.query.variantType;
+
     var e1 = new Experiment( {
       name: experimentName
     } );
+
     var v1 = new Variant( e1, {
       name: variantName,
       type: variantType
     } );
+
     _.bindAll( v1 );
     _.bindAll( e1 );
 
-    e1.exists( )
-      .then( function( exists ) {
-        if( exists )
-          return e1.loadAttributes( )
-      } )
+    v1.save( )
       .then( function( ) {
-        if( e1.isRunning( ) );
-          return v1.start( );
-        return false;
+        e1.addVariant( v1.getName( ) );
+        return e1.save( );
       } )
+      .then( v1.start )
       .done( function( ) {
         res.jsonp( { success: true } );
       } );
@@ -43,10 +42,15 @@ var actions = {
     var v1 = new Variant( e1, {
       name: variantName
     } );
+
     _.bindAll( v1 );
     _.bindAll( e1 );
+    e1.addGoal( goal );
 
-    v1.complete( goal )
+    e1.save( )
+      .then( function( ) {
+        v1.complete( goal );
+      } )
       .done( function( ) {
         res.jsonp( { success: true } );
       } );

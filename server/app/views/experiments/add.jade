@@ -1,0 +1,33 @@
+extends ../layouts/admin
+
+block content 
+  .row
+    .col-lg-12
+      h1="Experiments"
+      ol.breadcrumb
+        li
+          i.fa.fa-table
+            a( href="/" )
+              =" Experiments"
+        li
+          ="New"
+ 
+  div.row
+    div.col-lg-6
+      form
+        div.form-group
+          label="Experiment Name"
+          input.form-control
+
+        div.form-group
+          label="Goals"
+          input.form-control
+          div.help-block="Comma delimited"
+
+        div.form-group
+          label="Variants"
+          input.form-control
+          div.help-block="Comma delimited"
+
+        button.btn.btn-default( type="submit" )
+          ="Add Experiment"

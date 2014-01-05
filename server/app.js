@@ -7,7 +7,10 @@ var express = require( "express" ),
 
 var controllers = require( "./lib/controllers" )( appDir );
 
-//Express nonsense
+//helpers
+app.locals._ = require( 'lodash' );
+app.locals.moment = require( 'moment' );
+
 app.set( "port", process.env.PORT || settings.server.port );
 app.set( "views", path.join( appDir, "views" ) );
 app.set( "view engine", "jade" );
@@ -29,6 +32,8 @@ if ( "development" == app.get( "env" ) ) {
 
 //Routes
 app.get( "/", controllers.experiments.list );
+app.get( "/new", controllers.experiments.add );
+app.get( "/create", controllers.experiments.add );
 app.get( "/start", controllers.variants.start );
 app.get( "/complete", controllers.variants.complete );
 //app.get( "/", testController.list  );

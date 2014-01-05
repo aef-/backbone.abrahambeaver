@@ -57,7 +57,7 @@
   View.extend = extend;
 
   View.prototype = {
-    persist: true,
+    resettable: false, //after completed run the test again..
     reset: function( ) {
       $.removeCookie( cookiePrefixes.variant + this.name );
       $.removeCookie( cookiePrefixes.completed + this.name );
@@ -82,12 +82,12 @@
         dataType: "jsonp",
         data: {
           experimentName: this.name,
-          variantName: this.variants[ this.selected ].name, 
+          variantName: this.variants[ this.selected ].name,
           goal: goal
         }
       } );
 
-      if( this.persist )
+      if( !this.resettable )
         this.setCompletedCookie( );
       else
         this.reset( );
