@@ -38,6 +38,23 @@ var Variant = function( experiment, attr ) {
 };
 
 Variant.prototype = {
+  toJson: function( ) {
+    var r = {
+      name: this.getName( ),
+      createdAt: this.getCreatedAt( ),
+      type: this.getType( ),
+      startedCount: this.getStartedCount( )
+    };
+    if( this.getExperiment( ).getGoals( ) )
+      r.completedCount = 
+        _.map( this._completedCountByGoal, function( v, i ) {
+          return { name: i, count: v };
+        }, this );
+    else
+      r.completedCount = this.getCompletedCount( );
+
+    return r;
+  },
   toString: function( ) {
     return "Variant: " + this.getName( );
   },
@@ -204,6 +221,7 @@ Variant.prototype = {
     this._setAttribute( "createdAt", attr.createdAt );
     this._setAttribute( "type", attr.type );
     this._setAttribute( "startedCount", attr.startedCount );
+    return this;
   },
   _saveAttributes: function( ) {
     var d = Q.defer( );

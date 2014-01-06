@@ -32,8 +32,7 @@ if ( "development" == app.get( "env" ) ) {
 
 //Routes
 app.get( "/", controllers.experiments.list );
-app.get( "/new", controllers.experiments.add );
-app.get( "/create", controllers.experiments.add );
+app.get( "/experiments/:experiment", controllers.experiments.show );
 app.get( "/start", controllers.variants.start );
 app.get( "/complete", controllers.variants.complete );
 //app.get( "/", testController.list  );

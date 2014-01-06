@@ -1,0 +1,26 @@
+extends ../layouts/admin
+
+block content
+  .row
+    .col-lg-12
+      h1="Experiments"
+      ol.breadcrumb
+        li
+          i.fa.fa-table=" "
+            a( href="/" )="Experiments"
+        li.active= experiment.name
+
+      table.ab-variant.datatable.table.table-striped.table-bordered
+        thead
+          tr
+            th="Name"
+            th="Participants"
+            th="Unfinished"
+            th="Completed"
+            th="Conversion Rate"
+            th="Confidence"
+
+        tbody
+          for variant in variants
+            tr.ab-variant
+              include ../variants/_item

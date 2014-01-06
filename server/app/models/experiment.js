@@ -82,7 +82,7 @@ Experiment.prototype = {
     check( this.getName( ) ).notEmpty( );
 
     return this.loadAttributes( )
-      .then( _.bind( this.loadVariants, this ) )
+      .then( _.bind( this.loadVariantNames, this ) )
       .then( _.bind( this.loadGoals, this ) );
   },
 
@@ -141,7 +141,6 @@ Experiment.prototype = {
   },
 
   saveVariant: function( variantName ) {
-                 console.info( "Save variant", variantName );
     return Q.invoke( client, "sadd", this.getVariantsKey( ), variantName );
   },
 
@@ -197,15 +196,15 @@ Experiment.prototype = {
     return ~this._attributes.variants.indexOf( variantName );
   },
 
-  getVariants: function( ) {
+  getVariantNames: function( ) {
     return this._attributes.variants;
   },
 
   loadAttributes: function( ) {
     return Q.ninvoke( client, "hgetall", this.getKey( ) )
             .then( _.bind( this._setAttributes, this ) );
-  }, 
-  loadVariants: function( ) {
+  },
+  loadVariantNames: function( ) {
     return Q.ninvoke( client, "smembers", this.getVariantsKey( ) )
             .then( _.bind( function( variants ) {
               this._attributes.variants = variants || [ ];
@@ -224,7 +223,7 @@ Experiment.prototype = {
   },
 
   reset: function( ) {
-    return Q.all( this.getVariants( ).each( function( v ) {
+    return Q.all( this.getVariantNames( ).each( function( v ) {
       v.reset( );
     } ) )
     .then( this.resetWinner )
@@ -236,7 +235,7 @@ Experiment.prototype = {
   },
 
   removeVariants: function( ) {
-    return _.each( this.getVariants( ), function( v ) {
+    return _.each( this.getVariantNames( ), function( v ) {
       v.remove( );
     } ); 
   },
@@ -310,15 +309,15 @@ Experiment.prototype = {
 
   _update: function( ) {
     var currentGoals = _.clone( this.getGoals( ) ),
-        currentVariants = _.clone( this.getVariants( ) ),
+        currentVariants = _.clone( this.getVariantNames( ) ),
         variantsDiff, goalsDiff;
 
     Q.all( [
       this.loadGoals( ),
-      this.loadVariants( )
+      this.loadVariantsNames( )
     ] )
     .then( _.bind( function( ) {
-      variantsDiff = _.difference( currentVariants, this.getVariants( ) );
+      variantsDiff = _.difference( currentVariants, this.getVariantNames( ) );
       goalsDiff = _.difference( currentGoals, this.getGoals( ) );
       _.each( variantsDiff, this.saveVariant, this );
       _.each( goalsDiff, this.saveGoal, this );
@@ -329,11 +328,16 @@ Experiment.prototype = {
     return exists ? this._update( ) : this._create( );
   },
   _setAttributes: function( attr ) {
-    this._setAttribute( "startedAt", attr.startedAt );
-    this._setAttribute( "finishedAt", attr.finishedAt );
-    this._setAttribute( "createdAt", attr.createdAt );
-    this._setAttribute( "winner", attr.winner );
-    this._setAttribute( "version", attr.version );
+    if( !attr ) {
+      console.trace( );
+      console.error( "Experiment not found" );
+    } else {
+      this._setAttribute( "startedAt", attr.startedAt );
+      this._setAttribute( "finishedAt", attr.finishedAt );
+      this._setAttribute( "createdAt", attr.createdAt );
+      this._setAttribute( "winner", attr.winner );
+      this._setAttribute( "version", attr.version );
+    }
   },
   _setAttribute: function( key, value ) {
     this._attributes[ key ] = value;
@@ -348,10 +352,10 @@ Experiment.prototype = {
   },
   _addGoal: function( goal, success ) {
     if( success )
-      return this._attributes.goals.push( goal );
+      this._attributes.goals.push( goal );
     else {
       console.trace( );
-      throw new Error( "There was a problem adding goal: ", goal );
+      console.error( "There was a problem adding goal: ", goal );
     }
   }
 };
