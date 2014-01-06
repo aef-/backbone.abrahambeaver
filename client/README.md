@@ -84,6 +84,7 @@ var NavBlue = Backbone.View.extend( {
       leave( );
   }
 } );
+```
 
 ## License
 
