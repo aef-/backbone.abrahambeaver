@@ -18,17 +18,18 @@ var actions = {
         } );
         return Q.all( _.invoke( variants, "load" ) );
       } )
-      .done( function( ) {
+      .done( function( a ) {
+        console.info( a );
         res.render( "experiments/show", {
-          experiment: e.toJson( ),
-          variants: _.invoke( variants, "toJson" )
+          experiment: e,
+          variants: variants
         } );
       } );
   },
   list: function( req, res ) {
     Experiment.all( )
       .done( function( e ) {
-        res.render( "experiments/list", { experiments: _.invoke( e, "toJson" ) } );
+        res.render( "experiments/list", { experiments: e } );
       } );
   }
 };

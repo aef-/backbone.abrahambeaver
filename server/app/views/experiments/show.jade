@@ -8,19 +8,11 @@ block content
         li
           i.fa.fa-table=" "
             a( href="/" )="Experiments"
-        li.active= experiment.name
+        li.active= experiment.getName( )
 
-      table.ab-variant.datatable.table.table-striped.table-bordered
-        thead
-          tr
-            th="Name"
-            th="Participants"
-            th="Unfinished"
-            th="Completed"
-            th="Conversion Rate"
-            th="Confidence"
-
-        tbody
-          for variant in variants
-            tr.ab-variant
-              include ../variants/_item
+      if experiment.hasGoals( )
+        for goal in experiment.getGoals( )
+          h3=goal
+          include ../variants/list
+      else
+        include ../variants/list

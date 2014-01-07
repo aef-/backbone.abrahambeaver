@@ -1,0 +1,16 @@
+table.ab-variant.datatable.table.table-striped.table-bordered
+  thead
+    tr
+      th="Name"
+      th="Participants"
+      th="Unfinished"
+      th="Completed"
+      th="Conversion Rate"
+      th="Change"
+      th="Confidence"
+      th="Use"
+
+  tbody
+    for variant in variants
+      tr.ab-variant
+        include _item

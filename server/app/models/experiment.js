@@ -16,6 +16,8 @@ function Experiment( attr ) {
     version: 0
   } );
 
+  this._control = null;
+
   this.getKey = function( ) { 
     if( parseInt( this.getVersion( ), 10 ) > 0 )
       return "exp:" + this.getName( ) + ":" + this.getVersion( );
@@ -72,7 +74,8 @@ Experiment.prototype = {
       startedAt: parseInt( this.getStartedAt( ), 10 ),
       finishedAt: parseInt( this.getFinishedAt( ), 10 ),
       createdAt: parseInt( this.getCreatedAt( ), 10 ),
-      version: this.getVersion( )
+      version: this.getVersion( ),
+      goals: this.getGoals( )
     };
   },
   toString: function( ) {
@@ -169,14 +172,14 @@ Experiment.prototype = {
   },
 
   getCreatedAt: function( ) {
-    return this._attributes.createdAt;
+    return parseInt( this._attributes.createdAt, 10 );
   },
 
   getFinishedAt: function( ) {
-    return this._attributes.finishedAt;
+    return parseInt( this._attributes.finishedAt, 10 );
   },
   getStartedAt: function( ) {
-    return this._attributes.startedAt;
+    return parseInt( this._attributes.startedAt, 10 );
   },
 
   getWinner: function( ) {
@@ -211,6 +214,9 @@ Experiment.prototype = {
             }, this ) );
   },
 
+  hasGoals: function( ) {
+    return !!this._attributes.goals.length;
+  },
   getGoals: function( ) {
     return this._attributes.goals;
   },
@@ -222,6 +228,15 @@ Experiment.prototype = {
             }, this ) );
   },
 
+  hasControl: function( ) {
+    return !!this.getControl( );
+  },
+  setControl: function( variant ) {
+    return this._control = variant;
+  },
+  getControl: function( ) {
+    return this._control;
+  },
   reset: function( ) {
     return Q.all( this.getVariantNames( ).each( function( v ) {
       v.reset( );
@@ -235,9 +250,9 @@ Experiment.prototype = {
   },
 
   removeVariants: function( ) {
-    return _.each( this.getVariantNames( ), function( v ) {
+    return _.map( this.getVariantNames( ), function( v ) {
       v.remove( );
-    } ); 
+    } );
   },
 
   removeGoals: function( ) {
@@ -284,10 +299,10 @@ Experiment.prototype = {
       }, this ) )
       .then( _.bind( this.start, this ) )
       .then( _.bind( function( ) {
-        return Q.all( _.each( this._attributes.variants, this.saveVariant, this ) );
+        return Q.all( _.map( this._attributes.variants, this.saveVariant, this ) );
       }, this ) )
       .then( _.bind( function( ) {
-        return Q.all( _.each( this._attributes.goals, this.saveGoal, this ) );
+        return Q.all( _.map( this._attributes.goals, this.saveGoal, this ) );
       }, this ) );
   },
   _saveAttributes: function( ) {
@@ -314,7 +329,7 @@ Experiment.prototype = {
 
     Q.all( [
       this.loadGoals( ),
-      this.loadVariantsNames( )
+      this.loadVariantNames( )
     ] )
     .then( _.bind( function( ) {
       variantsDiff = _.difference( currentVariants, this.getVariantNames( ) );

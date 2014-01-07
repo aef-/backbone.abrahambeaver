@@ -1,5 +1,5 @@
 td
-  a( href="/experiments/" + encodeURIComponent( experiment.name ) )= experiment.name
-td= experiment.createdAt ? moment( experiment.createdAt ).format( 'YYYY/MM/DD' ) : "N/A"
-td= experiment.startedAt ? moment( experiment.startedAt ).format( 'YYYY/MM/DD' ) : "N/A"
-td= experiment.finishedAt ? moment( experiment.finishedAt ).format( 'YYYY/MM/DD' ) : "N/A"
+  a( href="/experiments/" + encodeURIComponent( experiment.getName( ) ) )= experiment.getName( )
+td= experiment.getCreatedAt( ) ? moment( experiment.getCreatedAt( ) ).format( 'YYYY/MM/DD' ) : "N/A"
+td= experiment.getStartedAt( ) ? moment( experiment.getStartedAt( ) ).format( 'YYYY/MM/DD' ) : "N/A"
+td= experiment.getFinishedAt( ) ? moment( experiment.getFinishedAt( ) ).format( 'YYYY/MM/DD' ) : "N/A"

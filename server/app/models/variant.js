@@ -80,7 +80,9 @@ Variant.prototype = {
     check( this.getExperiment( ), "Variants require an experiment in order to load" ).notEmpty( );
     check( this.getName( ), "Variant name is required in order to load" ).notEmpty( );
 
-    return this.loadAttributes( );//load completed count?
+    return this.loadAttributes( )
+               .then( _.bind( this._setControlInExperiment, this ) )
+               .then( _.bind( this.loadCompletedCount, this ) );
   },
   save: function( ) {
     check( this.getName( ), "Variant name is required in order to save" ).notEmpty( );
@@ -102,9 +104,34 @@ Variant.prototype = {
             }, this ) );
   },
   getConversionRate: function( goal ) {
+    return ( this.calculateConversionRate( goal ) * 100 );
+  },
+  getChangeRate: function( goal ) {
+    var cr = this.calculateChangeRate( goal );
+    if( cr )
+      return ( cr * 100 );
+    return null;
+  },
+
+  calculateConversionRate: function( goal ) {
     if( !this.getStartedCount( ) )
       return 0;
-    return parseFloat( this.getCompletedCount( goal ) ) / parseFloat( this.getStartedCount( ) );
+    return ( parseFloat( this.getCompletedCount( goal ) ) / parseFloat( this.getStartedCount( ) ) );
+  },
+
+  calculateChangeRate: function( goal ) {
+    if( this.getExperiment( ).hasControl( ) ) {
+      var t = this.getExperiment( ).getControl( ).calculateConversionRate( goal );
+      if( t )
+        return ( ( this.calculateConversionRate( goal ) - t ) / t );
+    }
+    return null;
+  },
+  getConversionRateConfidence: function( goal ) {
+    return this.calculateConversionRateConfidence( goal ) * 100;
+  },
+  calculateConversionRateConfidence: function( goal ) {
+    return 1.65 * this.calculateStandardError( goal );
   },
 
   loadAttributes: function( ) {
@@ -113,21 +140,21 @@ Variant.prototype = {
   },
 
   loadCompletedCount: function( goal ) {
-    if( this.getExperiment( ).getGoals( ).length )
+    if( this.getExperiment( ).hasGoals( ) )
       return this.loadCompletedCounts( );
     else
-      return Q.ninvoke( client, "hget", this.getCompletedKey( ) )
+      return Q.ninvoke( client, "get", this.getCompletedKey( ) )
               .then( _.bind( this._setAttribute, this, "completedCount" ) );
   },
 
   loadCompletedCounts: function( ) {
-    return Q.all( _.each( this.getExperiment( ).getGoals( ), this.loadCompletedCountByGoal ) );
+    return Q.all( _.map( this.getExperiment( ).getGoals( ), this.loadCompletedCountByGoal, this ) );
   },
 
   loadCompletedCountByGoal: function( goal ) {
-    return Q.ninvoke( client, "hget", this.getCompletedKey( goal ) )
+    return Q.ninvoke( client, "get", this.getCompletedKey( goal ) )
             .then( _.bind( function( count ) {
-              this._completedCountByGoal[ goal ] = count;
+              this._completedCountByGoal[ goal ] = count || 0;
             }, this ) );
   },
 
@@ -140,13 +167,13 @@ Variant.prototype = {
       if( !~this.getExperiment( ).getGoals( ).indexOf( goal ) )
         throw new Error( "Trying to get count of goal '" + goal +"' which is not part of the experiment" );
       else
-        return this._completedCountByGoal[ goal ] || 0;
+        return parseInt( this._completedCountByGoal[ goal ] || 0, 10 );
     else
-      return this._attributes.completedCount;
+      return parseInt( this._attributes.completedCount, 10 );
   },
 
   getStartedCount: function( ) {
-    return this._attributes.startedCount;
+    return parseInt( this._attributes.startedCount, 10 );
   },
 
   getUnfinishedCount: function( goal ) {
@@ -165,7 +192,7 @@ Variant.prototype = {
 
   resetCompletedCounts: function( ) {
     return this._resetGoal( )
-      .then( Q.all( _.each( this.getExperiment( ).getGoals( ), this._resetGoal ) ) );
+      .then( Q.all( _.map( this.getExperiment( ).getGoals( ), this._resetGoal ) ) );
   },
   destroy: function( ) {
     return this.exists( ).then( _.bind( this._destroy, this ) );
@@ -236,6 +263,33 @@ Variant.prototype = {
           d.resolve( results );
       } );
     return d.promise;
+  },
+  _setControlInExperiment: function( ) {
+    if( this.getExperiment( ).hasControl( ) && this.isControl( ) )
+      console.error( "Trying to set multiple controls." );
+    if( this.isControl( ) )
+      this.getExperiment( ).setControl( this );
+  },
+  calculateStandardError: function( goal ) {
+    return Math.sqrt(
+        ( this.calculateConversionRate( goal ) * ( 1 - this.calculateConversionRate( goal ) ) )
+        / this.getStartedCount( ) );
+  },
+  calculateZScore: function( goal ) {
+    var control = this.getExperiment( ).getControl( );
+    return ( this.calculateConversionRate( goal ) - control.calculateConversionRate( goal ) ) /
+      Math.sqrt( Math.pow( control.calculateStandardError( goal ), 2 ) + Math.pow( this.calculateStandardError( goal ), 2 ) );
+  },
+  getConfidenceLevel: function( goal ) {
+    var z = Math.abs( this.calculateZScore( goal ) );
+    if( z >= 2.58 )
+      return 99;
+    else if( z >= 1.96 )
+      return 95;
+    else if( z >= 1.65 )
+      return 90;
+    else
+      return null;
   }
 };
 

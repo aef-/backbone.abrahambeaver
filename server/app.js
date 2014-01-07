@@ -9,6 +9,7 @@ var controllers = require( "./lib/controllers" )( appDir );
 
 //helpers
 app.locals._ = require( 'lodash' );
+app.locals._str = require( 'underscore.string' );
 app.locals.moment = require( 'moment' );
 
 app.set( "port", process.env.PORT || settings.server.port );
