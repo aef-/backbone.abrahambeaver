@@ -34,8 +34,10 @@ if ( "development" == app.get( "env" ) ) {
 //Routes
 app.get( "/", controllers.experiments.list );
 app.get( "/experiments/:experiment", controllers.experiments.show );
+//here are json calls
 app.get( "/start", controllers.variants.start );
 app.get( "/complete", controllers.variants.complete );
+app.get( "/finish", controllers.experiments.finish );
 //app.get( "/", testController.list  );
 
 http.createServer( app ).listen( app.get( "port" ), function(  ){
