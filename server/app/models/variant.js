@@ -277,6 +277,8 @@ Variant.prototype = {
   },
   calculateZScore: function( goal ) {
     var control = this.getExperiment( ).getControl( );
+    if( !control )
+      return null;
     return ( this.calculateConversionRate( goal ) - control.calculateConversionRate( goal ) ) /
       Math.sqrt( Math.pow( control.calculateStandardError( goal ), 2 ) + Math.pow( this.calculateStandardError( goal ), 2 ) );
   },

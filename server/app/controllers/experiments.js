@@ -4,6 +4,9 @@ var _ = require( "lodash" ),
     Variant = require( "../models/variant" );
 
 var actions = {
+  complete: function( req, res ) {
+    var variantName = req.query.variantName;
+  },
   show: function( req, res ) {
     var experimentName = decodeURIComponent( req.params.experiment );
     var e = new Experiment( {

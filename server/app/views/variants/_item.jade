@@ -7,7 +7,7 @@ td= variant.getCompletedCount( goal )
 td
   = _str.numberFormat( variant.getConversionRate( goal ), 2 ) + "% "
   span.badge!= "&#177;" + _str.numberFormat( variant.getConversionRateConfidence( goal ), 2 ) + "%"
-td!= !variant.isControl( ) ? _str.numberFormat( variant.getChangeRate( goal ), 2 ) + "%" : "&mdash;"
+td!= !variant.isControl( ) && variant.getChangeRate( goal ) ? _str.numberFormat( variant.getChangeRate( goal ), 2 ) + "%" : "&mdash;"
 td= variant.getConfidenceLevel( goal ) ? variant.getConfidenceLevel( goal ) + "%" : "Insignificant"
 td
   button.btn.btn-success( type="button" )= "Select"
